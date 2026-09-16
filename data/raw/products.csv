@@ -1,0 +1,13 @@
+product_id,product_name,category,list_price
+P1001,Analytics Platform,Analytics,8500
+P1002,CRM Suite,CRM,6200
+P1003,Data Integration,Data,7800
+P1004,Cloud Migration,Cloud,15000
+P1005,Security Suite,Security,11000
+P1006,Customer Insights,Analytics,5200
+P1007,Workflow Automation,Automation,6800
+P1008,BI Dashboard,Analytics,4500
+P1009,Marketing Automation,Marketing,3900
+P1010,Data Quality,Data,5600
+P1011,AI Assistant,AI,12500
+P1012,API Management,Platform,7200

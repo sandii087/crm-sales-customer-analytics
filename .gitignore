@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Python tooling
+.pytest_cache/
+.ruff_cache/
+
+# Generated artifacts
+*.log
