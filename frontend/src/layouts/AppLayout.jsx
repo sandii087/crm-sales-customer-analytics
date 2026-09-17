@@ -10,6 +10,7 @@ import {
   Settings,
   Database,
   CircleCheck,
+  Brain,
 } from "lucide-react";
 
 const workspaceNavigation = [
@@ -20,6 +21,7 @@ const workspaceNavigation = [
   { label: "Sales Reps", path: "/sales-reps", icon: UserRound },
   { label: "Products", path: "/products", icon: Package },
   { label: "Reports", path: "/reports", icon: FileText },
+  { label: "AI Sales Intelligence", path: "/ai", icon: Brain },
 ];
 
 const pageNames = {
@@ -30,6 +32,7 @@ const pageNames = {
   "/sales-reps": "Sales Representatives",
   "/products": "Products",
   "/reports": "Reports",
+  "/ai": "AI Sales Intelligence",
   "/settings": "Settings",
 };
 

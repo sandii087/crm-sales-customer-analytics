@@ -193,3 +193,97 @@ def customer_segments():
         GROUP BY c.segment
         ORDER BY revenue DESC
     """)
+
+
+@app.get("/api/ai/forecast")
+def get_ai_forecast():
+    from pathlib import Path
+    import pandas as pd
+
+    project_root = Path(__file__).resolve().parents[2]
+
+    forecast_path = (
+        project_root
+        / "data"
+        / "processed"
+        / "revenue_forecast_8_weeks.csv"
+    )
+
+    if not forecast_path.exists():
+        return {
+            "status": "error",
+            "message": "Forecast file not found. Run the ML forecasting pipeline first."
+        }
+
+    df = pd.read_csv(forecast_path)
+
+    forecast = []
+
+    for _, row in df.iterrows():
+        forecast.append({
+            "week": str(row["week"]),
+            "forecast_net_revenue": round(
+                float(row["forecast_net_revenue"]),
+                2
+            )
+        })
+
+    return {
+        "status": "success",
+        "model": "Gradient Boosting",
+        "forecast_horizon_weeks": len(forecast),
+        "forecast": forecast
+    }
+
+
+@app.get("/api/ai/business-forecast")
+def get_business_forecast():
+    from pathlib import Path
+    import pandas as pd
+
+    project_root = Path(__file__).resolve().parents[2]
+
+    forecast_path = (
+        project_root
+        / "data"
+        / "processed"
+        / "business_forecast_8_weeks.csv"
+    )
+
+    if not forecast_path.exists():
+        return {
+            "status": "error",
+            "message": (
+                "Business forecast not found. "
+                "Run the margin forecasting pipeline first."
+            ),
+        }
+
+    df = pd.read_csv(forecast_path)
+
+    forecast = []
+
+    for _, row in df.iterrows():
+        forecast.append({
+            "week": str(row["week"]),
+            "forecast_net_revenue": round(
+                float(row["forecast_net_revenue"]),
+                2,
+            ),
+            "forecast_gross_profit": round(
+                float(row["forecast_gross_profit"]),
+                2,
+            ),
+            "forecast_gross_margin_pct": round(
+                float(row["forecast_gross_margin_pct"]),
+                2,
+            ),
+        })
+
+    return {
+        "status": "success",
+        "revenue_model": "Gradient Boosting",
+        "margin_model": "Gradient Boosting",
+        "forecast_horizon_weeks": len(forecast),
+        "forecast": forecast,
+    }

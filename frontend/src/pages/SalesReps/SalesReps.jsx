@@ -11,6 +11,9 @@ import {
   ChevronRight,
   X,
   TrendingUp,
+  BarChart3,
+  Check,
+  RotateCcw,
 } from "lucide-react";
 import {
   BarChart,
@@ -40,6 +43,15 @@ function formatCompactCurrency(value) {
   }).format(Number(value || 0));
 }
 
+function getInitials(name = "") {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export default function SalesReps() {
   const [summary, setSummary] = useState(null);
   const [performance, setPerformance] = useState([]);
@@ -47,8 +59,13 @@ export default function SalesReps() {
   const [error, setError] = useState("");
 
   const [regionFilter, setRegionFilter] = useState("All");
-  const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("revenue");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftRegion, setDraftRegion] = useState("All");
+  const [draftSort, setDraftSort] = useState("revenue");
+
   const [selectedRep, setSelectedRep] = useState(null);
 
   useEffect(() => {
@@ -77,19 +94,19 @@ export default function SalesReps() {
   );
 
   const filteredPerformance = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const query = searchTerm.trim().toLowerCase();
 
     return performance
       .filter((rep) => {
-        const matchesRegion =
+        const regionMatch =
           regionFilter === "All" || rep.region === regionFilter;
 
-        const matchesSearch =
-          !normalizedSearch ||
-          rep.sales_rep_name.toLowerCase().includes(normalizedSearch) ||
-          rep.region.toLowerCase().includes(normalizedSearch);
+        const searchMatch =
+          !query ||
+          rep.sales_rep_name.toLowerCase().includes(query) ||
+          rep.region.toLowerCase().includes(query);
 
-        return matchesRegion && matchesSearch;
+        return regionMatch && searchMatch;
       })
       .sort((a, b) => {
         if (sortBy === "transactions") {
@@ -102,7 +119,27 @@ export default function SalesReps() {
 
         return Number(b.revenue) - Number(a.revenue);
       });
-  }, [performance, regionFilter, searchTerm, sortBy]);
+  }, [performance, regionFilter, sortBy, searchTerm]);
+
+  const revenueChartData = useMemo(
+    () =>
+      [...filteredPerformance]
+        .sort((a, b) => Number(b.revenue) - Number(a.revenue))
+        .slice(0, 8),
+    [filteredPerformance],
+  );
+
+  const transactionChartData = useMemo(
+    () =>
+      [...filteredPerformance]
+        .sort(
+          (a, b) =>
+            Number(b.closed_transactions) -
+            Number(a.closed_transactions),
+        )
+        .slice(0, 8),
+    [filteredPerformance],
+  );
 
   const topRep = useMemo(
     () =>
@@ -115,28 +152,56 @@ export default function SalesReps() {
   const topTransactionsRep = useMemo(
     () =>
       [...performance].sort(
-        (a, b) => b.closed_transactions - a.closed_transactions,
+        (a, b) =>
+          Number(b.closed_transactions) -
+          Number(a.closed_transactions),
       )[0],
     [performance],
   );
 
   const maxRevenue = useMemo(
     () =>
-      Math.max(...performance.map((rep) => Number(rep.revenue)), 1),
+      Math.max(
+        ...performance.map((rep) => Number(rep.revenue || 0)),
+        1,
+      ),
     [performance],
   );
 
   const selectedRepRank = useMemo(() => {
     if (!selectedRep) return null;
 
+    const ranked = [...performance].sort(
+      (a, b) => Number(b.revenue) - Number(a.revenue),
+    );
+
     return (
-      [...performance]
-        .sort((a, b) => Number(b.revenue) - Number(a.revenue))
-        .findIndex(
-          (rep) => rep.sales_rep_name === selectedRep.sales_rep_name,
-        ) + 1
+      ranked.findIndex(
+        (rep) =>
+          rep.sales_rep_name === selectedRep.sales_rep_name,
+      ) + 1
     );
   }, [performance, selectedRep]);
+
+  function openFilter() {
+    setDraftRegion(regionFilter);
+    setDraftSort(sortBy);
+    setFilterOpen(true);
+  }
+
+  function applyFilter() {
+    setRegionFilter(draftRegion);
+    setSortBy(draftSort);
+    setFilterOpen(false);
+  }
+
+  function resetFilter() {
+    setDraftRegion("All");
+    setDraftSort("revenue");
+    setRegionFilter("All");
+    setSortBy("revenue");
+    setFilterOpen(false);
+  }
 
   if (loading) {
     return (
@@ -154,8 +219,12 @@ export default function SalesReps() {
     return (
       <section className="sales-reps-page">
         <div className="dashboard-error">
-          <h2>Unable to load sales performance</h2>
-          <p>{error}</p>
+          <div className="error-icon">!</div>
+          <div>
+            <span className="page-eyebrow">SALES DATA</span>
+            <h2>Unable to load sales performance</h2>
+            <p>{error}</p>
+          </div>
         </div>
       </section>
     );
@@ -194,7 +263,9 @@ export default function SalesReps() {
             <CircleDollarSign size={18} />
           </div>
           <span>Team revenue</span>
-          <strong>{formatCompactCurrency(summary.total_revenue)}</strong>
+          <strong>
+            {formatCompactCurrency(summary.total_revenue)}
+          </strong>
           <small>Revenue generated by the team</small>
         </article>
 
@@ -204,7 +275,9 @@ export default function SalesReps() {
           </div>
           <span>Average revenue / rep</span>
           <strong>
-            {formatCompactCurrency(summary.average_revenue_per_rep)}
+            {formatCompactCurrency(
+              summary.average_revenue_per_rep,
+            )}
           </strong>
           <small>Average representative contribution</small>
         </article>
@@ -229,34 +302,166 @@ export default function SalesReps() {
             placeholder="Search representative or region..."
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
+            aria-label="Search representatives"
           />
         </div>
 
         <div className="sales-toolbar-right">
-          <div className="sales-sort">
-            <ArrowUpDown size={15} />
-            <select
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value)}
-              aria-label="Sort representatives"
-            >
-              <option value="revenue">Revenue</option>
-              <option value="transactions">Transactions</option>
-              <option value="name">Name</option>
-            </select>
+          <div className="sales-active-filter">
+            <span>View</span>
+            <strong>
+              {regionFilter === "All" ? "All regions" : regionFilter}
+            </strong>
           </div>
 
-          <div className="sales-filter-label">
+          <button
+            type="button"
+            className="sales-filter-button"
+            onClick={openFilter}
+          >
             <SlidersHorizontal size={15} />
             Filter
-          </div>
+          </button>
         </div>
+
+        {filterOpen && (
+          <div className="sales-filter-popover">
+            <div className="sales-filter-popover-header">
+              <div>
+                <strong>Filter & sort</strong>
+                <span>Control the performance view</span>
+              </div>
+
+              <button
+                type="button"
+                className="filter-close"
+                onClick={() => setFilterOpen(false)}
+                aria-label="Close filters"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="filter-section">
+              <span className="filter-section-label">Region</span>
+
+              <div className="filter-options">
+                <button
+                  type="button"
+                  className={
+                    draftRegion === "All"
+                      ? "filter-option active"
+                      : "filter-option"
+                  }
+                  onClick={() => setDraftRegion("All")}
+                >
+                  <span>All regions</span>
+                  {draftRegion === "All" && (
+                    <Check size={14} />
+                  )}
+                </button>
+
+                {regions.map((region) => (
+                  <button
+                    key={region}
+                    type="button"
+                    className={
+                      draftRegion === region
+                        ? "filter-option active"
+                        : "filter-option"
+                    }
+                    onClick={() => setDraftRegion(region)}
+                  >
+                    <span>{region}</span>
+                    {draftRegion === region && (
+                      <Check size={14} />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filter-section">
+              <span className="filter-section-label">Sort by</span>
+
+              <div className="filter-options">
+                <button
+                  type="button"
+                  className={
+                    draftSort === "revenue"
+                      ? "filter-option active"
+                      : "filter-option"
+                  }
+                  onClick={() => setDraftSort("revenue")}
+                >
+                  <span>Revenue</span>
+                  {draftSort === "revenue" && (
+                    <Check size={14} />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    draftSort === "transactions"
+                      ? "filter-option active"
+                      : "filter-option"
+                  }
+                  onClick={() => setDraftSort("transactions")}
+                >
+                  <span>Transactions</span>
+                  {draftSort === "transactions" && (
+                    <Check size={14} />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    draftSort === "name"
+                      ? "filter-option active"
+                      : "filter-option"
+                  }
+                  onClick={() => setDraftSort("name")}
+                >
+                  <span>Name</span>
+                  {draftSort === "name" && (
+                    <Check size={14} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="filter-actions">
+              <button
+                type="button"
+                className="filter-reset"
+                onClick={resetFilter}
+              >
+                <RotateCcw size={13} />
+                Reset
+              </button>
+
+              <button
+                type="button"
+                className="filter-apply"
+                onClick={applyFilter}
+              >
+                Apply filters
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="region-chips">
         <button
           type="button"
-          className={regionFilter === "All" ? "region-chip active" : "region-chip"}
+          className={
+            regionFilter === "All"
+              ? "region-chip active"
+              : "region-chip"
+          }
           onClick={() => setRegionFilter("All")}
         >
           All regions
@@ -273,7 +478,9 @@ export default function SalesReps() {
               key={region}
               type="button"
               className={
-                regionFilter === region ? "region-chip active" : "region-chip"
+                regionFilter === region
+                  ? "region-chip active"
+                  : "region-chip"
               }
               onClick={() => setRegionFilter(region)}
             >
@@ -284,101 +491,159 @@ export default function SalesReps() {
         })}
       </div>
 
-      <div className="sales-content-grid">
-        <article className="analytics-panel sales-leaderboard-panel">
-          <div className="panel-title sales-panel-title">
+      <div className="sales-chart-grid">
+        <article className="analytics-panel sales-chart-panel">
+          <div className="panel-heading sales-panel-title">
             <div>
               <div className="panel-heading-title">
-                <Trophy size={16} />
+                <BarChart3 size={16} />
                 <h2>Revenue leaderboard</h2>
               </div>
-              <p>Highest-performing representatives</p>
+              <p>Top representatives by revenue</p>
             </div>
 
             <span className="panel-count">
-              {filteredPerformance.length} shown
+              Top {Math.min(revenueChartData.length, 8)}
             </span>
           </div>
 
-          <div className="sales-leaderboard">
-            {filteredPerformance.slice(0, 8).map((rep, index) => {
-              const progress =
-                (Number(rep.revenue) / maxRevenue) * 100;
+          <div className="sales-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={revenueChartData}
+                layout="vertical"
+                margin={{
+                  top: 4,
+                  right: 18,
+                  left: 12,
+                  bottom: 4,
+                }}
+              >
+                <CartesianGrid
+                  stroke="#eef1f5"
+                  strokeDasharray="4 5"
+                  horizontal={false}
+                />
 
-              return (
-                <button
-                  key={rep.sales_rep_name}
-                  type="button"
-                  className="leaderboard-row"
-                  onClick={() => setSelectedRep(rep)}
-                >
-                  <span className={`leader-rank rank-${index + 1}`}>
-                    {index + 1}
-                  </span>
+                <XAxis
+                  type="number"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: "#98a2b3",
+                    fontSize: 9,
+                  }}
+                  tickFormatter={formatCompactCurrency}
+                />
 
-                  <span className="leader-main">
-                    <span className="leader-name">
-                      {rep.sales_rep_name}
-                    </span>
-                    <span className="leader-meta">
-                      <MapPin size={11} />
-                      {rep.region}
-                      <span>•</span>
-                      {rep.closed_transactions} transactions
-                    </span>
+                <YAxis
+                  type="category"
+                  dataKey="sales_rep_name"
+                  width={82}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: "#667085",
+                    fontSize: 9,
+                  }}
+                />
 
-                    <span className="leader-progress">
-                      <span style={{ width: `${progress}%` }} />
-                    </span>
-                  </span>
+                <Tooltip
+                  formatter={(value) => formatCurrency(value)}
+                  contentStyle={{
+                    border: "1px solid #e4e7ec",
+                    borderRadius: "10px",
+                    boxShadow:
+                      "0 12px 28px rgba(16, 24, 40, 0.10)",
+                  }}
+                />
 
-                  <span className="leader-value">
-                    {formatCompactCurrency(rep.revenue)}
-                    <ChevronRight size={15} />
-                  </span>
-                </button>
-              );
-            })}
+                <Bar
+                  dataKey="revenue"
+                  fill="#5b5bd6"
+                  radius={[0, 6, 6, 0]}
+                  maxBarSize={24}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </article>
 
-        <article className="analytics-panel sales-insight-panel">
-          <div className="panel-title sales-panel-title">
+        <article className="analytics-panel sales-chart-panel">
+          <div className="panel-heading sales-panel-title">
             <div>
               <div className="panel-heading-title">
-                <TrendingUp size={16} />
-                <h2>Team signals</h2>
+                <ShoppingCart size={16} />
+                <h2>Transaction volume</h2>
               </div>
-              <p>Current organization indicators</p>
+              <p>Closed transactions by representative</p>
             </div>
+
+            <span className="panel-count">
+              {filteredPerformance.length} reps
+            </span>
           </div>
 
-          <div className="team-signal-list">
-            <div className="team-signal">
-              <span className="signal-label">Revenue leader</span>
-              <strong>{topRep?.sales_rep_name ?? "—"}</strong>
-              <small>
-                {topRep ? formatCurrency(topRep.revenue) : "No data"}
-              </small>
-            </div>
+          <div className="sales-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={transactionChartData}
+                margin={{
+                  top: 4,
+                  right: 18,
+                  left: 8,
+                  bottom: 4,
+                }}
+              >
+                <CartesianGrid
+                  stroke="#eef1f5"
+                  strokeDasharray="4 5"
+                  vertical={false}
+                />
 
-            <div className="team-signal">
-              <span className="signal-label">Transaction leader</span>
-              <strong>
-                {topTransactionsRep?.sales_rep_name ?? "—"}
-              </strong>
-              <small>
-                {topTransactionsRep
-                  ? `${topTransactionsRep.closed_transactions} transactions`
-                  : "No data"}
-              </small>
-            </div>
+                <XAxis
+                  dataKey="sales_rep_name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: "#98a2b3",
+                    fontSize: 8,
+                  }}
+                  interval={0}
+                />
 
-            <div className="team-signal">
-              <span className="signal-label">Regions covered</span>
-              <strong>{regions.length}</strong>
-              <small>Sales organization coverage</small>
-            </div>
+                <YAxis
+                  width={34}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: "#98a2b3",
+                    fontSize: 9,
+                  }}
+                  allowDecimals={false}
+                />
+
+                <Tooltip
+                  formatter={(value) => [
+                    `${value} transactions`,
+                    "Transactions",
+                  ]}
+                  contentStyle={{
+                    border: "1px solid #e4e7ec",
+                    borderRadius: "10px",
+                    boxShadow:
+                      "0 12px 28px rgba(16, 24, 40, 0.10)",
+                  }}
+                />
+
+                <Bar
+                  dataKey="closed_transactions"
+                  fill="#1570ef"
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={34}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </article>
       </div>
@@ -424,7 +689,8 @@ export default function SalesReps() {
                     key={rep.sales_rep_name}
                     onClick={() => setSelectedRep(rep)}
                     className={
-                      selectedRep?.sales_rep_name === rep.sales_rep_name
+                      selectedRep?.sales_rep_name ===
+                      rep.sales_rep_name
                         ? "selected-row"
                         : ""
                     }
@@ -432,11 +698,7 @@ export default function SalesReps() {
                     <td>
                       <div className="rep-name-cell">
                         <div className="rep-avatar">
-                          {rep.sales_rep_name
-                            .split(" ")
-                            .map((part) => part[0])
-                            .join("")
-                            .slice(0, 2)}
+                          {getInitials(rep.sales_rep_name)}
                         </div>
 
                         <div>
@@ -463,13 +725,15 @@ export default function SalesReps() {
                         <div className="contribution-bar">
                           <span
                             style={{
-                              width: `${Math.min(contribution * 5, 100)}%`,
+                              width: `${Math.min(
+                                contribution * 5,
+                                100,
+                              )}%`,
                             }}
                           />
                         </div>
-                        <span>
-                          {contribution.toFixed(1)}%
-                        </span>
+
+                        <span>{contribution.toFixed(1)}%</span>
                       </div>
                     </td>
                   </tr>
@@ -483,7 +747,7 @@ export default function SalesReps() {
               <Search size={20} />
               <strong>No representatives found</strong>
               <span>
-                Try another search term or remove the region filter.
+                Try another search or change the active filter.
               </span>
             </div>
           )}
@@ -491,14 +755,20 @@ export default function SalesReps() {
       </article>
 
       {selectedRep && (
-        <div className="rep-drawer-backdrop" onClick={() => setSelectedRep(null)}>
+        <div
+          className="rep-drawer-backdrop"
+          onClick={() => setSelectedRep(null)}
+        >
           <aside
             className="rep-drawer"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="rep-drawer-header">
               <div>
-                <span className="page-eyebrow">REPRESENTATIVE PROFILE</span>
+                <span className="page-eyebrow">
+                  REPRESENTATIVE PROFILE
+                </span>
+
                 <h2>{selectedRep.sales_rep_name}</h2>
               </div>
 
@@ -514,15 +784,12 @@ export default function SalesReps() {
 
             <div className="rep-profile-card">
               <div className="rep-profile-avatar">
-                {selectedRep.sales_rep_name
-                  .split(" ")
-                  .map((part) => part[0])
-                  .join("")
-                  .slice(0, 2)}
+                {getInitials(selectedRep.sales_rep_name)}
               </div>
 
               <div>
                 <strong>{selectedRep.sales_rep_name}</strong>
+
                 <span>
                   <MapPin size={12} />
                   {selectedRep.region}
@@ -553,7 +820,10 @@ export default function SalesReps() {
                 <strong>
                   {(
                     (Number(selectedRep.revenue) /
-                      Math.max(Number(summary.total_revenue), 1)) *
+                      Math.max(
+                        Number(summary.total_revenue),
+                        1,
+                      )) *
                     100
                   ).toFixed(1)}
                   %
@@ -564,22 +834,27 @@ export default function SalesReps() {
             <div className="rep-drawer-chart">
               <div className="drawer-section-title">
                 <span>Revenue position</span>
-                <strong>{formatCompactCurrency(selectedRep.revenue)}</strong>
+
+                <strong>
+                  {formatCompactCurrency(selectedRep.revenue)}
+                </strong>
               </div>
 
               <div className="drawer-progress">
                 <span
                   style={{
                     width: `${
-                      (Number(selectedRep.revenue) / maxRevenue) * 100
+                      (Number(selectedRep.revenue) /
+                        maxRevenue) *
+                      100
                     }%`,
                   }}
                 />
               </div>
 
               <p>
-                Compared with the highest-revenue representative in the
-                current dataset.
+                Compared with the highest-revenue representative in
+                the current dataset.
               </p>
             </div>
           </aside>

@@ -18,6 +18,24 @@ function formatCurrency(value) {
   }).format(value);
 }
 
+function formatAxisCurrency(value) {
+  const amount = Number(value || 0);
+
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(1)}Cr`;
+  }
+
+  if (amount >= 100000) {
+    return `₹${(amount / 100000).toFixed(1)}L`;
+  }
+
+  if (amount >= 1000) {
+    return `₹${Math.round(amount / 1000)}K`;
+  }
+
+  return `₹${amount}`;
+}
+
 export default function Customers() {
   const [segments, setSegments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,8 +84,9 @@ export default function Customers() {
     0,
   );
 
-  const topSegment =
-    [...segments].sort((a, b) => b.revenue - a.revenue)[0];
+  const topSegment = [...segments].sort(
+    (a, b) => Number(b.revenue) - Number(a.revenue),
+  )[0];
 
   return (
     <section>
@@ -83,29 +102,27 @@ export default function Customers() {
       </div>
 
       <div className="overview-kpis">
-        <article className="metric-card">
+        <article className="metric-card metric-indigo">
           <span>Customers with Revenue</span>
-          <strong>{totalCustomers}</strong>
+          <strong>{totalCustomers.toLocaleString("en-IN")}</strong>
           <small>Across active customer segments</small>
         </article>
 
-        <article className="metric-card">
+        <article className="metric-card metric-blue">
           <span>Customer Revenue</span>
           <strong>{formatCurrency(totalRevenue)}</strong>
           <small>Total revenue attributed to customers</small>
         </article>
 
-        <article className="metric-card">
+        <article className="metric-card metric-green">
           <span>Leading Segment</span>
           <strong>{topSegment?.segment ?? "—"}</strong>
           <small>
-            {topSegment
-              ? formatCurrency(topSegment.revenue)
-              : "No data"}
+            {topSegment ? formatCurrency(topSegment.revenue) : "No data"}
           </small>
         </article>
 
-        <article className="metric-card">
+        <article className="metric-card metric-amber">
           <span>Segments</span>
           <strong>{segments.length}</strong>
           <small>Customer segments in the CRM model</small>
@@ -115,23 +132,75 @@ export default function Customers() {
       <div className="overview-grid">
         <article className="analytics-panel">
           <div className="panel-title">
-            <h2>Revenue by Customer Segment</h2>
-            <p>Compare segment-level revenue contribution</p>
+            <div>
+              <div className="panel-heading-title">
+                <h2>Revenue by customer segment</h2>
+              </div>
+              <p>Compare segment-level revenue contribution</p>
+            </div>
+
+            <span className="panel-count">
+              {segments.length} segments
+            </span>
           </div>
 
-          <div className="overview-chart">
+          <div className="overview-chart" style={{ height: 360 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={segments}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="segment" />
-                <YAxis />
+              <BarChart
+                data={segments}
+                margin={{
+                  top: 14,
+                  right: 22,
+                  left: 18,
+                  bottom: 12,
+                }}
+              >
+                <CartesianGrid
+                  stroke="#eef1f5"
+                  strokeDasharray="4 5"
+                  vertical={false}
+                />
+
+                <XAxis
+                  dataKey="segment"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: "#667085",
+                    fontSize: 10,
+                  }}
+                  dy={8}
+                />
+
+                <YAxis
+                  width={72}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fill: "#98a2b3",
+                    fontSize: 10,
+                  }}
+                  tickFormatter={formatAxisCurrency}
+                />
+
                 <Tooltip
                   formatter={(value) => formatCurrency(value)}
+                  cursor={{
+                    fill: "rgba(91, 91, 214, 0.04)",
+                  }}
+                  contentStyle={{
+                    border: "1px solid #e4e7ec",
+                    borderRadius: "10px",
+                    boxShadow:
+                      "0 12px 28px rgba(16, 24, 40, 0.10)",
+                  }}
                 />
+
                 <Bar
                   dataKey="revenue"
-                  fill="#2563eb"
-                  radius={[5, 5, 0, 0]}
+                  fill="#5b5bd6"
+                  radius={[7, 7, 0, 0]}
+                  maxBarSize={72}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -140,8 +209,12 @@ export default function Customers() {
 
         <article className="analytics-panel">
           <div className="panel-title">
-            <h2>Segment Summary</h2>
-            <p>Customer count and transaction value</p>
+            <div>
+              <div className="panel-heading-title">
+                <h2>Segment summary</h2>
+              </div>
+              <p>Customer count and transaction value</p>
+            </div>
           </div>
 
           <div className="table-wrap">
@@ -153,15 +226,18 @@ export default function Customers() {
                   <th>Avg. Transaction</th>
                 </tr>
               </thead>
+
               <tbody>
                 {segments.map((segment) => (
                   <tr key={segment.segment}>
-                    <td>{segment.segment}</td>
-                    <td>{segment.customers}</td>
                     <td>
-                      {formatCurrency(
-                        segment.avg_transaction_value,
-                      )}
+                      <strong>{segment.segment}</strong>
+                    </td>
+                    <td>
+                      {Number(segment.customers).toLocaleString("en-IN")}
+                    </td>
+                    <td>
+                      {formatCurrency(segment.avg_transaction_value)}
                     </td>
                   </tr>
                 ))}
@@ -173,13 +249,15 @@ export default function Customers() {
 
       <article className="analytics-panel insight-panel">
         <p className="page-eyebrow">BUSINESS SNAPSHOT</p>
+
         <h2>
-          {topSegment?.segment} is the largest revenue-contributing
-          customer segment.
+          {topSegment?.segment ?? "Customer"} is the largest
+          revenue-contributing customer segment.
         </h2>
+
         <p>
-          This page can be extended with customer-level drill-down,
-          industry analysis, acquisition channels, and retention metrics.
+          Customer segment performance is available above for revenue,
+          customer count, and average transaction analysis.
         </p>
       </article>
     </section>

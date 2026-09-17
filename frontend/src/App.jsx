@@ -9,6 +9,7 @@ import Products from "./pages/Products/Products";
 import Reports from "./pages/Reports/Reports";
 import Settings from "./pages/Settings/Settings";
 import Revenue from "./pages/Revenue/Revenue";
+import AI from "./pages/AI/AI";
 
 function Placeholder({ title, description }) {
   return (
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/" element={<Overview />} />
 
           <Route path="/revenue" element={<Revenue />} />
+          <Route path="/ai" element={<AI />} />
 
           <Route path="/customers" element={<Customers />} />
 
